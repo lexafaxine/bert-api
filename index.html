@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<form id="text" action="javascript: void(0);">
+    固有表現抽出したいことば：<br>
+    <textarea name="kanso" rows="4" cols="40"></textarea>
+    <br>
+    <input type="submit" value="送信">
+    <input type="reset" value="リセット">
+</form>
+
+<div>
+    <textarea name="result" rows="4" cols="40">
+    </textarea>
+</div>
+
+</body>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    $(() => {
+        console.log("HEllo");
+        $("input[type='submit']").click(() => {
+            const raw = $('textarea[name="kanso"]');
+            $.ajax({
+                type: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                url: "/predict",
+                data: JSON.stringify({
+                    content: raw.val()
+                }),
+                success: function (result) {
+                    console.log(result);
+                    console.log(raw.val())
+                },
+                error: () => {
+                    alert("异常！");
+                    console.log('xxx')
+                }
+            });
+        });
+        });
+</script>
+</html>
