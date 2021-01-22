@@ -7,4 +7,5 @@ python bert_ner.py --task_name="NER" \
 --bert_config_file=./checkpoint/config.json \
 --init_checkpoint=./checkpoint/model.ckpt \
 --max_seq_length=128 \
---output_dir=./output/result_dir/
+--output_dir=./output/result_dir/ \
+--num_train_epochs=100

@@ -7,76 +7,86 @@ import os
 
 
 def preprocess(text, label_map, max_seq_length, tokenizer):
-    text = text.split(' ')
-    # label = text.label.split(' ')
-    tokens = []
-    labels = []
-    for i, word in enumerate(text):
-        # print("word= ", word)
-        token = tokenizer.tokenize(word)
-        if '▁' in token:
-            token.remove('▁')
-        # print("token= ", token)
-        tokens.extend(token)
-        for m in range(len(token)):
-            # dummy
-            labels.append("O")
+    instances = []
 
-    if len(tokens) >= max_seq_length - 1:
-        tokens = tokens[0:(max_seq_length - 2)]
-        labels = labels[0:(max_seq_length - 2)]
-    ntokens = []
-    segment_ids = []
-    label_ids = []
-    ntokens.append("[CLS]")
-    segment_ids.append(0)
-    # append("O") or append("[CLS]") not sure!
-    label_ids.append(label_map["[CLS]"])
-    for i, token in enumerate(tokens):
-        ntokens.append(token)
+    # split paragraph into sentences
+    sentences = []
+    paragraph = text.strip()
+    sent = []
+    for char in paragraph:
+        if char == "。":
+            sent.append(char)
+            sentences.append(sent)
+            sent = []
+        else:
+            sent.append(char)
+
+    n = len(sentences)
+
+    # deal with one sentence
+
+    for sent in sentences:
+        sent = sent.split(' ')
+        # label = text.label.split(' ')
+        tokens = []
+        labels = []
+        for i, word in enumerate(sent):
+            # print("word= ", word)
+            token = tokenizer.tokenize(word)
+            if '▁' in token:
+                token.remove('▁')
+            # print("token= ", token)
+            tokens.extend(token)
+            for m in range(len(token)):
+                # dummy
+                labels.append("O")
+
+        if len(tokens) >= max_seq_length - 1:
+            tokens = tokens[0:(max_seq_length - 2)]
+            labels = labels[0:(max_seq_length - 2)]
+        ntokens = []
+        segment_ids = []
+        label_ids = []
+        ntokens.append("[CLS]")
         segment_ids.append(0)
-        label_ids.append(label_map[labels[i]])
-    ntokens.append("[SEP]")
-    segment_ids.append(0)
-    # append("O") or append("[SEP]") not sure!
-    label_ids.append(label_map["[SEP]"])
-    input_ids = tokenizer.convert_tokens_to_ids(ntokens)
-    input_mask = [1] * len(input_ids)
-    # label_mask = [1] * len(input_ids)
-    while len(input_ids) < max_seq_length:
-        input_ids.append(0)
-        input_mask.append(0)
+        # append("O") or append("[CLS]") not sure!
+        label_ids.append(label_map["[CLS]"])
+        for i, token in enumerate(tokens):
+            ntokens.append(token)
+            segment_ids.append(0)
+            label_ids.append(label_map[labels[i]])
+        ntokens.append("[SEP]")
         segment_ids.append(0)
-        # we don't concerned about it!
-        label_ids.append(0)
-        ntokens.append("[PAD]")
+        # append("O") or append("[SEP]") not sure!
+        label_ids.append(label_map["[SEP]"])
+        input_ids = tokenizer.convert_tokens_to_ids(ntokens)
+        input_mask = [1] * len(input_ids)
+        # label_mask = [1] * len(input_ids)
+        while len(input_ids) < max_seq_length:
+            input_ids.append(0)
+            input_mask.append(0)
+            segment_ids.append(0)
+            # we don't concerned about it!
+            label_ids.append(0)
+            ntokens.append("[PAD]")
 
-    # print(len(input_ids))
-    assert len(input_ids) == max_seq_length
-    assert len(input_mask) == max_seq_length
-    assert len(segment_ids) == max_seq_length
-    assert len(label_ids) == max_seq_length
+        # print(len(input_ids))
+        assert len(input_ids) == max_seq_length
+        assert len(input_mask) == max_seq_length
+        assert len(segment_ids) == max_seq_length
+        assert len(label_ids) == max_seq_length
 
-    # feature = InputFeatures(
-    #     input_ids=input_ids,
-    #     input_mask=input_mask,
-    #     segment_ids=segment_ids,
-    #     label_ids=label_ids,
-    # )
+        instance = {
+            "input_ids": input_ids,
+            "input_mask": input_mask,
+            "segment_ids": segment_ids,
+            "label_ids": label_ids
+        }
 
-    with open("token_pred.txt", "w", encoding='utf-8') as writer:
-        for token in ntokens:
-            if token != "[PAD]":
-                writer.write(token + '\n')
+        instances.append(instance)
 
     return {
-        "instances": [
-            {"input_ids": input_ids,
-             "input_mask": input_mask,
-             "segment_ids": segment_ids,
-             "label_ids": label_ids
-             }
-        ]
+        "instances": instances
     }
 
 
@@ -98,7 +108,8 @@ def visualize(input_ids, result_ids, tokenizer, label_map):
 
     # label to type
 
-    d = {"O": "Nontype", "X": "Cross", "I-ORG": "Organization", "B-ORG": "Organization", "B-DAT": "Date", "I-DAT": "Date",
+    d = {"O": "Nontype", "X": "Cross", "I-ORG": "Organization", "B-ORG": "Organization", "B-DAT": "Date",
+         "I-DAT": "Date",
          "B-ART": "Artifact", "I-ART": "Artifact", "B-MNY": "Money", "I-MNY": "Money", "B-TIM": "Time",
          "I-TIM": "Time", "B-PNT": "Percent", "I-PNT": "Percent", "B-PSN": "Person", "I-PSN": "Person",
          "B-LOC": "Location", "I-LOC": "Location"}
@@ -186,21 +197,24 @@ if __name__ == "__main__":
         label2id = pickle.load(rf)
         id2label = {value: key for key, value in label2id.items()}
 
-    text = "韓国の文在寅（ムンジェイン）大統領は18日、新年の記者会見を開いた。8日にソウル中央地裁が日本政府に対し、元慰安婦の女性に賠償するよう命じる判決を出したことについて、「正直、混乱している」と述べた。"
+    text = "バイデン米大統領は21日、包括的な新型コロナウイルス対策を盛り込んだ「国家戦略」を発表した。　100日以内にワクチンを1億回接種することや、国防生産法を活用した医療物資供給能力の向上、外国からの渡航者に到着後の隔離を義務付けることなどが柱。バイデン氏はホワイトハウスで記者団に「これは戦時対応だ。事態が好転する前に、状況は悪化するだろう」と述べ、2月末までに国内の感染死者が50万人に達するとの見通しを示した。"
 
-    input = preprocess(text, label2id, 128, tokenizer)
-
-    print(input)
-
-    predictions = predict(id2label, input)
-
+    features = preprocess(text, label2id, 128, tokenizer)
+    print(features)
+    predictions = predict(id2label, features)
     print(predictions)
 
-    input_ids = input["instances"][0]["input_ids"]
-    result_ids = predictions['predictions'][0]
+    n = len(features["instances"])
 
-    output = visualize(input_ids, result_ids, tokenizer, id2label)
+    # output
+    results = []
+    for i in range(n):
+        result_ids = predictions.json()['predictions'][i]
+        input_ids = features["instances"][i]["input_ids"]
+        result = visualize(input_ids, result_ids, tokenizer, id2label)
+        results.append(result)
 
-    print("============================================================")
-
+    output = {
+        "result": results
+    }
     print(output)
