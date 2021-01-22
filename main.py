@@ -1,11 +1,14 @@
+import os
 import json
-from flask import Flask, request, send_file
 import bert_ner
 import pickle
 import time
 import requests
+from flask import Flask, request, send_file
 
 app = Flask(__name__, static_url_path='')
+
+TF_SERVER_HOST = os.environ.get("TF_SERVER_HOST", "localhost")
 
 
 def preprocess(text, label_map, max_seq_length, tokenizer):
@@ -201,7 +204,7 @@ def predict():
 
         # predict
         start = time.time()
-        predictions = requests.post('http://localhost:8501/v1/models/ner_32k:predict',
+        predictions = requests.post(f'http://{TF_SERVER_HOST}/v1/models/ner_32k:predict',
                                     json=features)
         end = time.time()
         n = len(features["instances"])
