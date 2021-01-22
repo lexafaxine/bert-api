@@ -18,7 +18,7 @@ def preprocess(text, label_map, max_seq_length, tokenizer):
     for char in paragraph:
         if char == "。":
             sent.append(char)
-            "".join(sent)
+            sent = "".join(sent)
             sentences.append(sent)
             sent = []
         else:
