@@ -4,11 +4,21 @@ import bert_ner
 import pickle
 import time
 import requests
-from flask import Flask, request, send_file
+
+from flask import Flask, request
 
 app = Flask(__name__, static_url_path='')
 
 TF_SERVER_HOST = os.environ.get("TF_SERVER_HOST", "localhost")
+MECAB_DICT_PATH = os.environ["MECAB_DICT_PATH"]
+
+tokenizer = bert_ner.tokenization_ja.MecabBertTokenizer(os.path.join("data", "vocab.txt"), mecab_dict_path=MECAB_DICT_PATH)
+
+
+#   lable map: lable to id
+with open(os.path.join("data", "label2id.pkl"), 'rb') as rf:
+    label2id = pickle.load(rf)
+    id2label = {value: key for key, value in label2id.items()}
 
 
 def preprocess(text, label_map, max_seq_length, tokenizer):
@@ -86,7 +96,7 @@ def preprocess(text, label_map, max_seq_length, tokenizer):
             "input_ids": input_ids,
             "input_mask": input_mask,
             "segment_ids": segment_ids,
-            "label_ids": label_ids
+            "label_ids": label_ids,
         }
 
         instances.append(instance)
@@ -94,14 +104,6 @@ def preprocess(text, label_map, max_seq_length, tokenizer):
     return {
         "instances": instances
     }
-
-
-tokenizer = bert_ner.tokenization_ja.MecabBertTokenizer("vocab.txt",
-                                                        mecab_dict_path="/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd")
-#   lable map: lable to id
-with open('./label2id.pkl', 'rb') as rf:
-    label2id = pickle.load(rf)
-    id2label = {value: key for key, value in label2id.items()}
 
 
 def visualize(input_ids, result_ids, tokenizer, label_map):
@@ -116,19 +118,31 @@ def visualize(input_ids, result_ids, tokenizer, label_map):
         label = label_map[result]
         label_list.append(label)
 
-    output = []
     output_cell = []
     n = len(label_list)
 
     # label to type
 
-    d = {"O": "Nontype", "X": "Cross", "I-ORG": "Organization", "B-ORG": "Organization", "B-DAT": "Date",
-         "I-DAT": "Date",
-         "B-ART": "Artifact", "I-ART": "Artifact", "B-MNY": "Money", "I-MNY": "Money", "B-TIM": "Time",
-         "I-TIM": "Time", "B-PNT": "Percent", "I-PNT": "Percent", "B-PSN": "Person", "I-PSN": "Person",
-         "B-LOC": "Location", "I-LOC": "Location"}
-
-    now = None
+    d = {
+        "O": "Nontype", 
+        "X": "Cross", 
+        "I-ORG": "Organization", 
+        "B-ORG": "Organization", 
+        "B-DAT": "Date",
+        "I-DAT": "Date",
+        "B-ART": "Artifact", 
+        "I-ART": "Artifact", 
+        "B-MNY": "Money", 
+        "I-MNY": "Money", 
+        "B-TIM": "Time",
+        "I-TIM": "Time", 
+        "B-PNT": "Percent", 
+        "I-PNT": "Percent", 
+        "B-PSN": "Person", 
+        "I-PSN": "Person",
+        "B-LOC": "Location", 
+        "I-LOC": "Location",
+    }
 
     cell_type = None
     cell_content = []
@@ -199,20 +213,21 @@ def predict():
     if request.method == "POST":
         raw_data = json.loads(request.data)
         content = raw_data["content"]
+
         # preprocess
         features = preprocess(content, label2id, max_seq_length=128, tokenizer=tokenizer)
 
         # predict
         start = time.time()
-        predictions = requests.post(f'http://{TF_SERVER_HOST}/v1/models/ner_32k:predict',
-                                    json=features)
+        predictions = requests.post(f'http://{TF_SERVER_HOST}/v1/models/ner_32k:predict', json=features)
         end = time.time()
         n = len(features["instances"])
 
         # output
         results = []
         for i in range(n):
-            result_ids = predictions.json()['predictions'][i]
+            data = predictions.json()
+            result_ids = data['predictions'][i]
             input_ids = features["instances"][i]["input_ids"]
             result = visualize(input_ids, result_ids, tokenizer, id2label)
             results.append(result)
@@ -220,9 +235,3 @@ def predict():
         return {
             "result": results
         }
-
-
-@app.route('/', methods=['GET'])
-def index():
-    if request.method == "GET":
-        return send_file("index.html")

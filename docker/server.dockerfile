@@ -7,5 +7,7 @@ ENV FLASK_APP main.py
 ENV FLASK_ENV development
 ENV FLASK_RUN_HOST 0.0.0.0
 ENV FLASK_RUN_PORT 5000
+ENV MECAB_DICT_PATH "/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd"
+
 WORKDIR /bert-api
 CMD flask run
