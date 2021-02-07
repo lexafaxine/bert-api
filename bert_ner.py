@@ -23,7 +23,7 @@ import os
 from bert import modeling
 from bert import optimization
 from bert import tokenization as tokenization
-from bert import tokenization_mecab as tokenization_ja
+from tokenization_mecab as tokenization_ja
 import tensorflow as tf
 import pickle
 import tf_metrics
